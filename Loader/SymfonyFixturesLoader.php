@@ -21,6 +21,8 @@ final class SymfonyFixturesLoader extends ContainerAwareLoader
 {
     private $loadedFixtures = [];
 
+    private $groupsFixtureMapping = [];
+
     /**
      * @internal
      */
@@ -28,7 +30,9 @@ final class SymfonyFixturesLoader extends ContainerAwareLoader
     {
         // Store all loaded fixtures so that we can resolve the dependencies correctly.
         foreach ($fixtures as $fixture) {
-            $this->loadedFixtures[get_class($fixture)] = $fixture;
+            $class = get_class($fixture['fixture']);
+            $this->loadedFixtures[$class] = $fixture['fixture'];
+            $this->addGroupsFixtureMapping($class, $fixture['groups']);
         }
 
         // Now load all the fixtures
@@ -37,6 +41,9 @@ final class SymfonyFixturesLoader extends ContainerAwareLoader
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function addFixture(FixtureInterface $fixture)
     {
         $class = get_class($fixture);
@@ -70,6 +77,47 @@ final class SymfonyFixturesLoader extends ContainerAwareLoader
         }
 
         return $this->loadedFixtures[$class];
+    }
+
+    /**
+     * Returns the array of data fixtures to execute.
+     *
+     * @param array $groups
+     *
+     * @return array $fixtures
+     */
+    public function getFixtures(array $groups = [])
+    {
+        $fixtures = parent::getFixtures();
+
+        if (!empty($groups)) {
+            $filteredFixtures = [];
+            foreach ($fixtures as $key => $fixture) {
+                foreach ($groups as $group) {
+                    if (isset($this->groupsFixtureMapping[$group][get_class($fixture)])) {
+                        $filteredFixtures[$key] = $fixture;
+                    }
+                }
+            }
+            $fixtures = $filteredFixtures;
+        }
+
+        return $fixtures;
+    }
+
+    /**
+     * Generates an array of the groups and their fixtures
+     *
+     * @param string $className
+     * @param array $groups
+     *
+     * @return void
+     */
+    public function addGroupsFixtureMapping($className, array $groups)
+    {
+        foreach ($groups as $group) {
+            $this->groupsFixtureMapping[$group][$className] = true;
+        }
     }
 
     /**
